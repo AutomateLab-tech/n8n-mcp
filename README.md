@@ -7,9 +7,9 @@ An [MCP](https://modelcontextprotocol.io) server that gives Claude, Cursor, and 
 
 ## Why we built this
 
-We use n8n daily inside [AutomateLab](https://automatelab.tech), and we kept hitting the same friction when asking an LLM to help: it would emit workflow JSON that imported but failed at runtime, or it would generate AI Agent clusters with the wrong connection types, or - most frustrating - the user would paste an execution that "silently dropped items" and the model had no idea where to look. Generic "give the model the whole n8n catalog" approaches eat huge context and still produce broken JSON because the failure modes are subtle (typeVersion mismatches, IF v1 schema, credential references that don't survive import).
+We use n8n daily inside AutomateLab and kept hitting the same LLM failures: workflow JSON that imports but fails at runtime, AI Agent clusters wired with the wrong connection types, executions that silently drop items with no clue where to look. Dumping the whole n8n catalog into context doesn't fix it - the failure modes are too subtle (typeVersion mismatches, IF v1 schema, credentials that don't survive import).
 
-So we built a small, focused server: **encode the failure modes the lint can catch, the cluster topology the generator must respect, and the diagnosis the agent can't do alone.**
+So we built a small, focused server: **encode the failure modes the lint can catch, the cluster topology the generator must respect, and the diagnosis the agent can't do alone.** For a walkthrough of the nine tools with example output, see the [launch post on automatelab.tech](https://automatelab.tech/n8n-mcp-server/).
 
 ## Why it's different
 
