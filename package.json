@@ -2,7 +2,7 @@
   "name": "@automatelab/n8n-mcp",
   "version": "0.3.0",
   "mcpName": "io.github.ratamaha-git/n8n-mcp",
-  "description": "MCP server for n8n: generate workflows, lint, explain failed executions, and drive a live n8n instance via REST.",
+  "description": "MCP server for n8n with tools for generating workflows, linting, diagnosing failed executions, and driving live n8n instances. Built for AI agents.",
   "type": "module",
   "bin": {
     "n8n-mcp": "dist/index.js"
@@ -25,7 +25,7 @@
     "langchain",
     "ai-agent"
   ],
-  "homepage": "https://github.com/ratamaha-git/n8n-mcp",
+  "homepage": "https://automatelab.tech/n8n-mcp-server/",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ratamaha-git/n8n-mcp.git"
