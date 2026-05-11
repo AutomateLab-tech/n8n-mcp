@@ -1,0 +1,12 @@
+{
+  "name": "n8n-mcp",
+  "version": "0.3.0",
+  "description": "MCP server for n8n with tools for generating workflows, linting, diagnosing failed executions, and driving live n8n instances. Built for AI agents.",
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "n8n": {
+      "command": "npx",
+      "args": ["-y", "@automatelab/n8n-mcp"]
+    }
+  }
+}

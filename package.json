@@ -19,6 +19,8 @@
     "mcp",
     "cursor",
     "claude",
+    "gemini",
+    "gemini-cli-extension",
     "agent-skill",
     "model-context-protocol",
     "workflow-automation",
@@ -43,6 +45,8 @@
     "examples/",
     "references/",
     "SKILL.md",
+    "GEMINI.md",
+    "gemini-extension.json",
     "README.md",
     "LICENSE"
   ],
