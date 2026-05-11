@@ -1,5 +1,5 @@
 name: 'n8n MCP Action'
-description: 'Run n8n MCP tools (lint, explain, generate) in GitHub Actions. Detects workflow issues, diagnoses failed executions, and generates workflow JSON.'
+description: 'Lint n8n workflows, diagnose failed executions, and generate workflow JSON in GitHub Actions.'
 author: 'AutomateLab'
 branding:
   icon: 'check-square'
