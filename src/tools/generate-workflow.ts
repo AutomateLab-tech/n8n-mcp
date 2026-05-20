@@ -278,6 +278,7 @@ export async function generateWorkflow(rawArgs: unknown) {
 		content: [
 			{ type: "text" as const, text: JSON.stringify(workflow, null, 2) },
 		],
+		structuredContent: { workflow },
 	};
 }
 
@@ -371,5 +372,6 @@ function buildAiAgentWorkflow(args: { description: string; name?: string }) {
 		content: [
 			{ type: "text" as const, text: JSON.stringify(workflow, null, 2) },
 		],
+		structuredContent: { workflow },
 	};
 }

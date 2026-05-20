@@ -265,9 +265,14 @@ function safeParse(s: string): unknown {
 }
 
 function formatResult(issues: Issue[]) {
+	const error_count = issues.filter((i) => i.severity === "error").length;
+	const warning_count = issues.filter((i) => i.severity === "warning").length;
+	const structuredContent = { issues, error_count, warning_count };
+
 	if (issues.length === 0) {
 		return {
 			content: [{ type: "text" as const, text: "no issues found" }],
+			structuredContent,
 		};
 	}
 	const lines = issues.map((i) => {
@@ -277,5 +282,6 @@ function formatResult(issues: Issue[]) {
 	});
 	return {
 		content: [{ type: "text" as const, text: lines.join("\n") }],
+		structuredContent,
 	};
 }

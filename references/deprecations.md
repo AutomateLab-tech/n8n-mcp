@@ -1,6 +1,6 @@
 # Deprecations and import gotchas
 
-`n8n_lint_workflow` flags these. Avoid producing them in fresh workflows.
+`workflow.lint` flags these. Avoid producing them in fresh workflows.
 
 ## Removed / renamed node types
 
@@ -29,4 +29,4 @@ Several nodes have changed their parameter schema across `typeVersion` bumps. Co
 - **Credential names that don't exist on the target instance** → workflow loads but fails at runtime. There's no "find or create" — you must recreate credentials with identical names in the new instance.
 - **AI Agent without `ai_languageModel` sub-node** → loads but fails on first execution with "no language model configured." Lint catches this as ERROR.
 
-When in doubt, run `n8n_lint_workflow` against the JSON before returning it.
+When in doubt, run `workflow.lint` against the JSON before returning it.

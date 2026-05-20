@@ -71,16 +71,30 @@ async function call(
 	}
 }
 
-function textResult(text: string) {
-	return { content: [{ type: "text" as const, text }] };
+function textResult(text: string, structured?: Record<string, unknown>) {
+	if (structured === undefined) {
+		return { content: [{ type: "text" as const, text }] };
+	}
+	return {
+		content: [{ type: "text" as const, text }],
+		structuredContent: structured,
+	};
 }
 
-function jsonResult(data: unknown) {
-	return textResult(JSON.stringify(data, null, 2));
+function jsonResult(data: unknown, structured?: Record<string, unknown>) {
+	return textResult(JSON.stringify(data, null, 2), structured);
+}
+
+function errorResult(error: string) {
+	return {
+		content: [{ type: "text" as const, text: error }],
+		structuredContent: { ok: false, error },
+		isError: true,
+	};
 }
 
 // ---------------------------------------------------------------------------
-// n8n_list_workflows
+// workflow.list
 // ---------------------------------------------------------------------------
 
 export const listWorkflowsInputSchema = {
@@ -114,7 +128,7 @@ const listWorkflowsZod = z.object({
 
 export async function listWorkflows(rawArgs: unknown) {
 	const cfg = getConfig();
-	if ("error" in cfg) return textResult(cfg.error);
+	if ("error" in cfg) return errorResult(cfg.error);
 	const args = listWorkflowsZod.parse(rawArgs ?? {});
 	const params = new URLSearchParams();
 	if (args.active !== undefined) params.set("active", String(args.active));
@@ -123,10 +137,10 @@ export async function listWorkflows(rawArgs: unknown) {
 	if (args.limit) params.set("limit", String(args.limit));
 	const qs = params.toString() ? `?${params}` : "";
 	const r = await call(cfg, "GET", `/workflows${qs}`);
-	if (!r.ok) return textResult(r.error);
+	if (!r.ok) return errorResult(r.error);
 	const data = r.data as { data?: unknown[] } | unknown[];
 	const arr = Array.isArray(data) ? data : data?.data ?? [];
-	const summary = (arr as Array<Record<string, unknown>>).map((w) => ({
+	const workflows = (arr as Array<Record<string, unknown>>).map((w) => ({
 		id: w.id,
 		name: w.name,
 		active: w.active,
@@ -136,11 +150,11 @@ export async function listWorkflows(rawArgs: unknown) {
 			? (w.tags as Array<{ name?: string }>).map((t) => t.name).filter(Boolean)
 			: undefined,
 	}));
-	return jsonResult(summary);
+	return jsonResult(workflows, { workflows, count: workflows.length });
 }
 
 // ---------------------------------------------------------------------------
-// n8n_get_workflow
+// workflow.get
 // ---------------------------------------------------------------------------
 
 export const getWorkflowInputSchema = {
@@ -155,15 +169,16 @@ const getWorkflowZod = z.object({ id: z.string().min(1) });
 
 export async function getWorkflow(rawArgs: unknown) {
 	const cfg = getConfig();
-	if ("error" in cfg) return textResult(cfg.error);
+	if ("error" in cfg) return errorResult(cfg.error);
 	const args = getWorkflowZod.parse(rawArgs);
 	const r = await call(cfg, "GET", `/workflows/${encodeURIComponent(args.id)}`);
-	if (!r.ok) return textResult(r.error);
-	return jsonResult(r.data);
+	if (!r.ok) return errorResult(r.error);
+	const wf = (r.data ?? {}) as Record<string, unknown>;
+	return jsonResult(r.data, { workflow: wf });
 }
 
 // ---------------------------------------------------------------------------
-// n8n_create_workflow
+// workflow.create
 // ---------------------------------------------------------------------------
 
 export const createWorkflowInputSchema = {
@@ -171,7 +186,7 @@ export const createWorkflowInputSchema = {
 	properties: {
 		workflow: {
 			description:
-				"Workflow JSON to create (typically the output of n8n_generate_workflow). Either a parsed object or a JSON string.",
+				"Workflow JSON to create (typically the output of workflow.generate). Either a parsed object or a JSON string.",
 			oneOf: [{ type: "object" }, { type: "string" }],
 		},
 	},
@@ -184,31 +199,29 @@ const createWorkflowZod = z.object({
 
 export async function createWorkflow(rawArgs: unknown) {
 	const cfg = getConfig();
-	if ("error" in cfg) return textResult(cfg.error);
+	if ("error" in cfg) return errorResult(cfg.error);
 	const args = createWorkflowZod.parse(rawArgs);
 	const wf =
 		typeof args.workflow === "string"
 			? safeParse(args.workflow)
 			: args.workflow;
 	if (!wf || typeof wf !== "object" || Array.isArray(wf)) {
-		return textResult("Workflow payload is not a JSON object.");
+		return errorResult("Workflow payload is not a JSON object.");
 	}
 	const body = stripReadOnly(wf as Record<string, unknown>);
 	const r = await call(cfg, "POST", "/workflows", body);
-	if (!r.ok) return textResult(r.error);
-	const created = r.data as Record<string, unknown> | null;
-	if (created && typeof created === "object" && "id" in created) {
-		return textResult(
-			`Created workflow "${
-				(created.name as string) ?? "(unnamed)"
-			}" with id ${created.id}. Activate it with n8n_activate_workflow.`,
-		);
-	}
-	return jsonResult(r.data);
+	if (!r.ok) return errorResult(r.error);
+	const created = (r.data ?? {}) as Record<string, unknown>;
+	const id = "id" in created ? String(created.id) : "";
+	const name = (created.name as string) ?? "(unnamed)";
+	const msg = id
+		? `Created workflow "${name}" with id ${id}. Activate it with workflow.activate.`
+		: `Workflow create returned no id. Raw response: ${JSON.stringify(r.data).slice(0, 200)}`;
+	return textResult(msg, { id, name, workflow: created });
 }
 
 // ---------------------------------------------------------------------------
-// n8n_activate_workflow
+// workflow.activate
 // ---------------------------------------------------------------------------
 
 export const activateWorkflowInputSchema = {
@@ -231,7 +244,7 @@ const activateWorkflowZod = z.object({
 
 export async function activateWorkflow(rawArgs: unknown) {
 	const cfg = getConfig();
-	if ("error" in cfg) return textResult(cfg.error);
+	if ("error" in cfg) return errorResult(cfg.error);
 	const args = activateWorkflowZod.parse(rawArgs);
 	const action = args.active === false ? "deactivate" : "activate";
 	const r = await call(
@@ -239,12 +252,16 @@ export async function activateWorkflow(rawArgs: unknown) {
 		"POST",
 		`/workflows/${encodeURIComponent(args.id)}/${action}`,
 	);
-	if (!r.ok) return textResult(r.error);
-	return textResult(`Workflow ${args.id} ${action}d.`);
+	if (!r.ok) return errorResult(r.error);
+	return textResult(`Workflow ${args.id} ${action}d.`, {
+		ok: true,
+		id: args.id,
+		action,
+	});
 }
 
 // ---------------------------------------------------------------------------
-// n8n_list_executions
+// execution.list
 // ---------------------------------------------------------------------------
 
 export const listExecutionsInputSchema = {
@@ -263,7 +280,7 @@ export const listExecutionsInputSchema = {
 		includeData: {
 			type: "boolean",
 			description:
-				"Include full execution data (large). Default false — pair with n8n_explain_execution.",
+				"Include full execution data (large). Default false — pair with execution.explain.",
 		},
 	},
 } as const;
@@ -277,7 +294,7 @@ const listExecutionsZod = z.object({
 
 export async function listExecutions(rawArgs: unknown) {
 	const cfg = getConfig();
-	if ("error" in cfg) return textResult(cfg.error);
+	if ("error" in cfg) return errorResult(cfg.error);
 	const args = listExecutionsZod.parse(rawArgs ?? {});
 	const params = new URLSearchParams();
 	if (args.workflowId) params.set("workflowId", args.workflowId);
@@ -286,10 +303,15 @@ export async function listExecutions(rawArgs: unknown) {
 	if (args.includeData) params.set("includeData", "true");
 	const qs = params.toString() ? `?${params}` : "";
 	const r = await call(cfg, "GET", `/executions${qs}`);
-	if (!r.ok) return textResult(r.error);
-	if (args.includeData) return jsonResult(r.data);
+	if (!r.ok) return errorResult(r.error);
 	const data = r.data as { data?: unknown[] } | unknown[];
 	const arr = Array.isArray(data) ? data : data?.data ?? [];
+	if (args.includeData) {
+		return jsonResult(r.data, {
+			executions: arr as unknown[],
+			count: (arr as unknown[]).length,
+		});
+	}
 	const summary = (arr as Array<Record<string, unknown>>).map((e) => ({
 		id: e.id,
 		workflowId: e.workflowId,
@@ -299,7 +321,7 @@ export async function listExecutions(rawArgs: unknown) {
 		stoppedAt: e.stoppedAt,
 		finished: e.finished,
 	}));
-	return jsonResult(summary);
+	return jsonResult(summary, { executions: summary, count: summary.length });
 }
 
 // ---------------------------------------------------------------------------

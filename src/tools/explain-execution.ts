@@ -344,7 +344,10 @@ function formatResult(findings: Finding[]) {
 		const main = `${tag} ${where}${f.message}`;
 		return f.hint ? `${main}\n  hint: ${f.hint}` : main;
 	});
+	const error_count = findings.filter((f) => f.severity === "error").length;
+	const warning_count = findings.filter((f) => f.severity === "warning").length;
 	return {
 		content: [{ type: "text" as const, text: lines.join("\n\n") }],
+		structuredContent: { findings, error_count, warning_count },
 	};
 }

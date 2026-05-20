@@ -31,6 +31,12 @@ export async function scaffoldNode(rawArgs: unknown) {
 	const skeleton = renderSkeleton(nodeName, displayName, args.description);
 	return {
 		content: [{ type: "text" as const, text: skeleton }],
+		structuredContent: {
+			node_name: nodeName,
+			display_name: displayName,
+			source: skeleton,
+			language: "typescript",
+		},
 	};
 }
 

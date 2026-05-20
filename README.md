@@ -17,33 +17,37 @@ Other n8n MCP servers (notably [czlonkowski/n8n-mcp](https://github.com/czlonkow
 
 This server is the **debugging-and-first-run-correctness MCP for n8n**:
 
-- **`n8n_explain_execution`** is the wedge. Paste the execution JSON; get back per-node findings: which nodes returned 0 items, which had unresolved `={{ ... }}` expressions, error messages with concrete hints. No other MCP server does this well, and it hits the n8n community's #1 debugging pain point (silent data loss between nodes).
-- **`n8n_generate_workflow`** is opinionated about AI Agent topology - emits proper LangChain clusters with `ai_languageModel` / `ai_memory` / `ai_tool` connections (sub-nodes connect *upward* to the agent, not via `main`). Imports cleanly on n8n 1.x.
-- **`n8n_lint_workflow`** catches the silent failures: deprecated node types (Function → Code, spreadsheetFile → convertToFile), AI Agent missing language model, IF v1 schema, Webhook missing webhookId, broken connections across all connection types (not just `main`).
+- **`execution.explain`** is the wedge. Paste the execution JSON; get back per-node findings: which nodes returned 0 items, which had unresolved `={{ ... }}` expressions, error messages with concrete hints. No other MCP server does this well, and it hits the n8n community's #1 debugging pain point (silent data loss between nodes).
+- **`workflow.generate`** is opinionated about AI Agent topology - emits proper LangChain clusters with `ai_languageModel` / `ai_memory` / `ai_tool` connections (sub-nodes connect *upward* to the agent, not via `main`). Imports cleanly on n8n 1.x.
+- **`workflow.lint`** catches the silent failures: deprecated node types (Function → Code, spreadsheetFile → convertToFile), AI Agent missing language model, IF v1 schema, Webhook missing webhookId, broken connections across all connection types (not just `main`).
 - **5 REST tools** (gated on `N8N_API_URL` + `N8N_API_KEY`) let you list, fetch, create, activate workflows and pull executions - so the lint and explain tools can run against your live workflows, not just JSON pasted in chat.
 
 Plus: a paired [Agent Skill](./SKILL.md) that teaches the model when to use which tool and where to load deeper context (split into `references/` so it doesn't bloat the prompt).
 
 ## Tools
 
+Tool names follow dot-notation and form a navigable tree: `node.*`, `workflow.*`, `execution.*`. Every tool declares an `outputSchema` (so callers can type-check responses) and MCP `annotations` (read-only / destructive / idempotent / open-world hints).
+
 **Stateless** (work without a live n8n instance):
 
 | Tool | Purpose |
 |---|---|
-| `n8n_generate_workflow` | Plain-English description → workflow JSON. Detects AI-agent intent. |
-| `n8n_scaffold_node` | Description → single `INodeType` TypeScript file for a custom n8n package. |
-| `n8n_lint_workflow` | Workflow JSON → list of errors and warnings. |
-| `n8n_explain_execution` | Failed execution JSON → per-node diagnosis with hints. |
+| `workflow.generate` | Plain-English description → workflow JSON. Detects AI-agent intent. |
+| `node.scaffold` | Description → single `INodeType` TypeScript file for a custom n8n package. |
+| `workflow.lint` | Workflow JSON → list of errors and warnings. |
+| `execution.explain` | Failed execution JSON → per-node diagnosis with hints. |
 
 **Live-instance** (require `N8N_API_URL` + `N8N_API_KEY` env vars):
 
 | Tool | Purpose |
 |---|---|
-| `n8n_list_workflows` | Paginate workflows; filter by active/tags/name. |
-| `n8n_get_workflow` | Fetch a workflow by id. |
-| `n8n_create_workflow` | POST a workflow. Strips read-only fields. |
-| `n8n_activate_workflow` | Flip active on/off. |
-| `n8n_list_executions` | Browse executions; pass `includeData: true` for the full body. |
+| `workflow.list` | Paginate workflows; filter by active/tags/name. |
+| `workflow.get` | Fetch a workflow by id. |
+| `workflow.create` | POST a workflow. Strips read-only fields. |
+| `workflow.activate` | Flip active on/off. |
+| `execution.list` | Browse executions; pass `includeData: true` for the full body. |
+
+> **v0.4.0 breaking change.** Tools were renamed from `n8n_*` (snake_case) to dot-notation (`workflow.generate`, `execution.explain`, ...). Update any prompts, agent skills, or scripts that referenced the old names.
 
 ## Install
 
@@ -89,17 +93,17 @@ See [ACTION.md](./ACTION.md) and [GITHUB-ACTION-SETUP.md](./GITHUB-ACTION-SETUP.
 
 The `env` block is optional - the 4 stateless tools work without it. Get an API key from n8n: **Settings → API → Create API key**.
 
-Restart your MCP host. The 9 `n8n_*` tools appear in the MCP panel.
+Restart your MCP host. The 9 dot-notation tools (`workflow.*`, `node.*`, `execution.*`) appear in the MCP panel.
 
 ## Tool examples
 
-### `n8n_generate_workflow`
+### `workflow.generate`
 
-> Use n8n_generate_workflow to build: Stripe webhook → Slack message + new row in Google Sheets.
+> Use workflow.generate to build: Stripe webhook → Slack message + new row in Google Sheets.
 
 Returns workflow JSON ready for n8n's "Import from File" dialog.
 
-### `n8n_explain_execution`
+### `execution.explain`
 
 > Here's a failed execution from n8n. Why is the Slack node not firing?
 > [paste JSON]
@@ -112,7 +116,7 @@ WARNING [Filter] Returned 0 items. Downstream nodes will not execute.
 INFO [Last node executed was "Filter". If the workflow stopped here unexpectedly, check its output items below.]
 ```
 
-### `n8n_lint_workflow`
+### `workflow.lint`
 
 > Lint this workflow JSON.
 > [paste JSON]
