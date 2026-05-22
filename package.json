@@ -1,6 +1,6 @@
 {
   "name": "@automatelab/n8n-mcp",
-  "version": "0.5.0",
+  "version": "0.5.5",
   "mcpName": "io.github.ratamaha-git/n8n-mcp",
   "description": "MCP server for n8n with tools for generating workflows, linting, diagnosing failed executions, and driving live n8n instances. Built for AI agents.",
   "type": "module",

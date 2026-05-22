@@ -2,7 +2,7 @@
   "dxt_version": "0.1",
   "name": "n8n-mcp",
   "display_name": "n8n MCP",
-  "version": "0.5.0",
+  "version": "0.5.5",
   "description": "MCP server for n8n: generate, lint, diff workflows; explain, replay, and time failed executions; drive a live n8n instance.",
   "long_description": "Debugging-first MCP server for n8n. Generates workflow JSON from plain English, lints with 20+ rules, diffs deployed vs local, explains why an execution dropped items, builds replay workflows for stubborn nodes, renders execution timelines, and (when N8N_API_URL + N8N_API_KEY are set) drives a live n8n instance via the REST API.",
   "author": {

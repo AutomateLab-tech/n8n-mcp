@@ -33,7 +33,7 @@ import {
 } from "./output-schemas.js";
 import { isToolEnabled, policySummary } from "./policy.js";
 
-const VERSION = "0.5.0";
+const VERSION = "0.5.5";
 
 const server = new McpServer({
 	name: "n8n-mcp",
