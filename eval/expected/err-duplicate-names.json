@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "severity": "error",
+      "node": "Process Data",
+      "message": "Duplicate node name."
+    }
+  ],
+  "error_count": 1,
+  "warning_count": 0
+}

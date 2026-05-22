@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "severity": "warning",
+      "node": "Transform Data",
+      "message": "Node type \"n8n-nodes-base.function\" is deprecated. Use \"n8n-nodes-base.code\"."
+    }
+  ],
+  "error_count": 0,
+  "warning_count": 1
+}

@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "severity": "warning",
+      "node": "Every Day at 9am",
+      "message": "Schedule trigger uses `triggerAtHour` but workflow has no `settings.timezone` set. Will fall back to the n8n instance's timezone, drift during DST, and surprise you twice a year. Set `settings.timezone` (e.g. 'UTC' or 'America/New_York')."
+    }
+  ],
+  "error_count": 0,
+  "warning_count": 1
+}

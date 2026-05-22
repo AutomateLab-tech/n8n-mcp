@@ -1,0 +1,58 @@
+{
+  "name": "Schedule Trigger Without Timezone",
+  "nodes": [
+    {
+      "id": "k1000000-0000-0000-0000-000000000001",
+      "name": "Every Day at 9am",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "k1000000-0000-0000-0000-000000000002",
+      "name": "Send Daily Report",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2,
+      "position": [460, 300],
+      "retryOnFail": true,
+      "parameters": {
+        "resource": "message",
+        "operation": "send",
+        "sendTo": "team@example.com",
+        "subject": "Daily Report",
+        "message": "Here is today's report."
+      },
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "cred-003",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Every Day at 9am": {
+      "main": [
+        [
+          {
+            "node": "Send Daily Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null
+}

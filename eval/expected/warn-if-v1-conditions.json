@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "severity": "warning",
+      "node": "Check Status",
+      "message": "IF node uses v1 condition schema (`conditions.boolean[]` etc.). Bump `typeVersion` to 2+ and switch to the v2 condition shape (`conditions.options`, `conditions.conditions[]`, `conditions.combinator`)."
+    }
+  ],
+  "error_count": 0,
+  "warning_count": 1
+}
