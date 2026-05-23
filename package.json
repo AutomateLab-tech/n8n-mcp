@@ -43,6 +43,7 @@
   },
   "files": [
     "action.yml",
+    "smithery.yaml",
     "dist/",
     "examples/",
     "references/",

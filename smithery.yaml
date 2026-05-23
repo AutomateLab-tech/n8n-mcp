@@ -1,0 +1,36 @@
+startCommand:
+  type: stdio
+
+configSchema:
+  type: object
+  properties:
+    n8nApiUrl:
+      type: string
+      title: n8n instance URL
+      description: >
+        Base URL of your n8n instance (e.g. https://my-n8n.example.com).
+        Required only for live tools (workflow.list, workflow.get, workflow.create,
+        workflow.activate, execution.*). Offline tools (workflow.generate,
+        workflow.lint, node.scaffold, execution.explain) work without it.
+    n8nApiKey:
+      type: string
+      title: n8n API key
+      description: API key for your n8n instance. Required together with n8nApiUrl for live tools.
+    readOnly:
+      type: boolean
+      title: Read-only mode
+      description: >
+        If true, disables all write tools (workflow.create, workflow.activate).
+        Useful for read-and-analyse workflows.
+  required: []
+
+commandFunction: |-
+  config => ({
+    command: "npx",
+    args: ["-y", "@automatelab/n8n-mcp"],
+    env: {
+      ...(config.n8nApiUrl ? { N8N_API_URL: config.n8nApiUrl } : {}),
+      ...(config.n8nApiKey ? { N8N_API_KEY: config.n8nApiKey } : {}),
+      ...(config.readOnly ? { N8N_MCP_READ_ONLY: "1" } : {}),
+    }
+  })
