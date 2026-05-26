@@ -4,6 +4,7 @@ An [MCP](https://modelcontextprotocol.io) server for [n8n](https://n8n.io) that 
 
 [![npm](https://img.shields.io/npm/v/@automatelab/n8n-mcp.svg)](https://www.npmjs.com/package/@automatelab/n8n-mcp)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![CI](https://github.com/AutomateLab-tech/n8n-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/AutomateLab-tech/n8n-mcp/actions/workflows/ci.yml)
 
 ## Why we built this
 
