@@ -1,0 +1,10 @@
+{
+  "issues": [
+    {
+      "severity": "error",
+      "message": "Connection from \"HTTP Request\" points to missing node \"Deleted Node\"."
+    }
+  ],
+  "error_count": 1,
+  "warning_count": 0
+}

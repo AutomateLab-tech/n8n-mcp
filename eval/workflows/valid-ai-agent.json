@@ -1,0 +1,94 @@
+{
+  "name": "Valid AI Agent Workflow",
+  "nodes": [
+    {
+      "id": "a1000000-0000-0000-0000-000000000001",
+      "name": "Chat Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "f47ac10b-58cc-4372-a567-0e02b2c3d479",
+      "parameters": {
+        "path": "chat",
+        "responseMode": "lastNode"
+      }
+    },
+    {
+      "id": "a1000000-0000-0000-0000-000000000002",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1,
+      "position": [460, 300],
+      "parameters": {
+        "systemMessage": "You are a helpful assistant.",
+        "options": {}
+      }
+    },
+    {
+      "id": "a1000000-0000-0000-0000-000000000003",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1,
+      "position": [460, 480],
+      "parameters": {
+        "model": "gpt-4o-mini",
+        "options": {}
+      },
+      "retryOnFail": true,
+      "credentials": {
+        "lmChatOpenAiApi": {
+          "id": "cred-001",
+          "name": "OpenAI account"
+        }
+      }
+    },
+    {
+      "id": "a1000000-0000-0000-0000-000000000004",
+      "name": "Window Buffer Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1,
+      "position": [640, 480],
+      "parameters": {
+        "sessionKey": "={{ $json.sessionId }}",
+        "contextWindowLength": 10
+      }
+    }
+  ],
+  "connections": {
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Window Buffer Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null
+}

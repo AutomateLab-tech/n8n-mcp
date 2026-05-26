@@ -1,0 +1,99 @@
+{
+  "dxt_version": "0.1",
+  "name": "n8n-mcp",
+  "display_name": "n8n MCP",
+  "version": "0.5.5",
+  "description": "MCP server for n8n: generate, lint, diff workflows; explain, replay, and time failed executions; drive a live n8n instance.",
+  "long_description": "Debugging-first MCP server for n8n. Generates workflow JSON from plain English, lints with 20+ rules, diffs deployed vs local, explains why an execution dropped items, builds replay workflows for stubborn nodes, renders execution timelines, and (when N8N_API_URL + N8N_API_KEY are set) drives a live n8n instance via the REST API.",
+  "author": {
+    "name": "AutomateLab",
+    "email": "hello@automatelab.tech",
+    "url": "https://automatelab.tech"
+  },
+  "homepage": "https://automatelab.tech/n8n-mcp-server/",
+  "documentation": "https://github.com/AutomateLab-tech/n8n-mcp#readme",
+  "support": "https://github.com/AutomateLab-tech/n8n-mcp/issues",
+  "license": "MIT",
+  "keywords": ["n8n", "workflow", "automation", "debugging", "langchain", "ai-agent"],
+  "icon": "icon.png",
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": ["${__dirname}/dist/index.js"],
+      "env": {
+        "N8N_API_URL": "${user_config.n8n_api_url}",
+        "N8N_API_KEY": "${user_config.n8n_api_key}",
+        "N8N_MCP_READ_ONLY": "${user_config.read_only}",
+        "N8N_MCP_DISABLED_TOOLS": "${user_config.disabled_tools}",
+        "N8N_MCP_ALLOWED_WORKFLOW_IDS": "${user_config.allowed_workflow_ids}",
+        "N8N_MCP_ALLOWED_TAGS": "${user_config.allowed_tags}"
+      }
+    }
+  },
+  "user_config": {
+    "n8n_api_url": {
+      "type": "string",
+      "title": "n8n API URL",
+      "description": "Base URL of your n8n instance (e.g. https://n8n.example.com). Leave blank to use only the offline tools (generate, lint, diff, explain, replay, timeline, scaffold).",
+      "required": false
+    },
+    "n8n_api_key": {
+      "type": "string",
+      "title": "n8n API Key",
+      "description": "Personal API key from n8n Settings -> API. Required for the REST tools.",
+      "sensitive": true,
+      "required": false
+    },
+    "read_only": {
+      "type": "string",
+      "title": "Read-only mode",
+      "description": "Set to '1' to disable workflow.create, workflow.activate, and node.scaffold.",
+      "default": "",
+      "required": false
+    },
+    "disabled_tools": {
+      "type": "string",
+      "title": "Disabled tools (comma-separated)",
+      "description": "e.g. 'workflow.create,workflow.activate' to skip those tools.",
+      "default": "",
+      "required": false
+    },
+    "allowed_workflow_ids": {
+      "type": "string",
+      "title": "Allowed workflow IDs (comma-separated)",
+      "description": "If set, REST tools refuse to touch workflows outside this list.",
+      "default": "",
+      "required": false
+    },
+    "allowed_tags": {
+      "type": "string",
+      "title": "Allowed tags (comma-separated)",
+      "description": "If set, workflow.list filters results to workflows carrying at least one of these tags.",
+      "default": "",
+      "required": false
+    }
+  },
+  "tools": [
+    { "name": "workflow.generate", "description": "Generate workflow JSON from plain English." },
+    { "name": "workflow.lint", "description": "Lint a workflow with 20+ rules." },
+    { "name": "workflow.diff", "description": "Semantic diff between two workflows." },
+    { "name": "execution.explain", "description": "Explain why a failed execution misbehaved." },
+    { "name": "execution.replay", "description": "Build a replay workflow isolating one node." },
+    { "name": "execution.timeline", "description": "Render a per-node execution timeline." },
+    { "name": "node.scaffold", "description": "Scaffold a custom node TypeScript skeleton." },
+    { "name": "workflow.list", "description": "List workflows on a live n8n instance." },
+    { "name": "workflow.get", "description": "Fetch a workflow by ID." },
+    { "name": "workflow.create", "description": "Create a workflow on a live n8n instance." },
+    { "name": "workflow.activate", "description": "Activate or deactivate a workflow." },
+    { "name": "execution.list", "description": "List recent executions on a live n8n instance." }
+  ],
+  "compatibility": {
+    "claude_desktop": ">=0.10.0",
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "node": ">=20"
+    }
+  }
+}

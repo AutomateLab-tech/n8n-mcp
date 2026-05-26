@@ -7,6 +7,9 @@ import { scaffoldNode } from "./tools/scaffold-node.js";
 import { generateWorkflow } from "./tools/generate-workflow.js";
 import { lintWorkflow } from "./tools/lint-workflow.js";
 import { explainExecution } from "./tools/explain-execution.js";
+import { replayExecution } from "./tools/replay-execution.js";
+import { diffWorkflow } from "./tools/diff-workflow.js";
+import { timelineExecution } from "./tools/timeline-execution.js";
 import {
 	activateWorkflow,
 	createWorkflow,
@@ -17,16 +20,20 @@ import {
 import {
 	activateWorkflowOutputShape,
 	createWorkflowOutputShape,
+	diffWorkflowOutputShape,
 	explainExecutionOutputShape,
 	generateWorkflowOutputShape,
 	getWorkflowOutputShape,
 	lintWorkflowOutputShape,
 	listExecutionsOutputShape,
 	listWorkflowsOutputShape,
+	replayExecutionOutputShape,
 	scaffoldNodeOutputShape,
+	timelineExecutionOutputShape,
 } from "./output-schemas.js";
+import { isToolEnabled, policySummary } from "./policy.js";
 
-const VERSION = "0.4.0";
+const VERSION = "0.5.5";
 
 const server = new McpServer({
 	name: "n8n-mcp",
@@ -36,13 +43,30 @@ const server = new McpServer({
 // ---------------------------------------------------------------------------
 // Tool naming convention: dot-notation forms a navigable tree.
 //   node.*       - n8n custom-node scaffolding
-//   workflow.*   - workflow lifecycle (generate, lint, list, get, create, activate)
-//   execution.*  - execution diagnosis and inspection
-// Renamed in v0.4.0 from the previous flat n8n_* names.
+//   workflow.*   - workflow lifecycle (generate, lint, diff, list, get, create, activate)
+//   execution.*  - execution diagnosis (explain, replay, timeline, list)
+//
+// Tools can be disabled at runtime via env vars — see src/policy.ts:
+//   N8N_MCP_READ_ONLY=1
+//   N8N_MCP_DISABLED_TOOLS=workflow.create,workflow.activate
+//   N8N_MCP_ALLOWED_WORKFLOW_IDS=abc123,def456
+//   N8N_MCP_ALLOWED_TAGS=prod,staging
 // ---------------------------------------------------------------------------
 
+function maybeRegisterTool(
+	name: string,
+	// biome-ignore lint: registerTool is heavily overloaded; passing through.
+	config: any,
+	// biome-ignore lint: registerTool is heavily overloaded; passing through.
+	handler: (input: any) => unknown,
+) {
+	if (!isToolEnabled(name)) return;
+	// biome-ignore lint: pass-through to overloaded SDK method.
+	(server.registerTool as any)(name, config, handler);
+}
+
 // --- node.scaffold ---
-server.registerTool(
+maybeRegisterTool(
 	"node.scaffold",
 	{
 		title: "Scaffold an n8n custom node",
@@ -76,7 +100,7 @@ server.registerTool(
 );
 
 // --- workflow.generate ---
-server.registerTool(
+maybeRegisterTool(
 	"workflow.generate",
 	{
 		title: "Generate an n8n workflow from a description",
@@ -109,12 +133,12 @@ server.registerTool(
 );
 
 // --- workflow.lint ---
-server.registerTool(
+maybeRegisterTool(
 	"workflow.lint",
 	{
 		title: "Lint an n8n workflow JSON",
 		description:
-			"Lint an n8n workflow JSON. Returns concrete errors and warnings: missing credentials, deprecated node types (Function -> Code, spreadsheetFile -> convertToFile/extractFromFile), broken connections, missing or non-numeric typeVersion, duplicate node names or IDs, AI Agent missing ai_languageModel sub-node, Webhook missing webhookId, IF node still on v1 condition schema. Deterministic, rule-based.",
+			"Lint an n8n workflow JSON. Returns concrete errors and warnings: missing credentials, deprecated node types (Function -> Code, spreadsheetFile -> convertToFile/extractFromFile), broken connections, missing or non-numeric typeVersion, duplicate node names or IDs, AI Agent missing ai_languageModel sub-node, Webhook missing webhookId, IF node still on v1 condition schema, rate-sensitive nodes without retries, Code-node sandbox violations, expression staleness (`$('NodeName')` referencing missing nodes), manualTrigger in active workflows, disabled-but-wired nodes, empty Set nodes, HTTP method/body mismatches, Schedule trigger DST risk, credential drift, webhook test paths in active workflows. Deterministic, rule-based.",
 		inputSchema: {
 			workflow: z
 				.union([z.record(z.unknown()), z.string()])
@@ -134,8 +158,35 @@ server.registerTool(
 	async (input) => lintWorkflow(input),
 );
 
+// --- workflow.diff ---
+maybeRegisterTool(
+	"workflow.diff",
+	{
+		title: "Semantic diff between two n8n workflows",
+		description:
+			"Semantic diff between two workflows. Reports nodes added / removed / modified (with field-level deltas: type, typeVersion, parameters, credentials, disabled, position), connection topology changes, and settings drift. Ignores noise (small position deltas, createdAt/updatedAt). Pair with workflow.get to compare deployed vs local. Deterministic.",
+		inputSchema: {
+			before: z
+				.union([z.record(z.unknown()), z.string()])
+				.describe("The 'before' workflow JSON."),
+			after: z
+				.union([z.record(z.unknown()), z.string()])
+				.describe("The 'after' workflow JSON."),
+		},
+		outputSchema: diffWorkflowOutputShape,
+		annotations: {
+			title: "Diff two n8n workflows",
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
+	},
+	async (input) => diffWorkflow(input),
+);
+
 // --- execution.explain ---
-server.registerTool(
+maybeRegisterTool(
 	"execution.explain",
 	{
 		title: "Explain a failed n8n execution",
@@ -160,8 +211,71 @@ server.registerTool(
 	async (input) => explainExecution(input),
 );
 
+// --- execution.replay ---
+maybeRegisterTool(
+	"execution.replay",
+	{
+		title: "Build a replay workflow for one node",
+		description:
+			"Build a self-contained replay workflow that exercises a single node from a larger workflow. The replay workflow is Manual Trigger -> Replay Seed (Code node with pinned items) -> target node. Optional `inputItems` or an `execution` payload pins what the target sees. Useful for iterating on one stubborn node without re-running the whole pipeline. Returns workflow JSON ready to import or push via workflow.create.",
+		inputSchema: {
+			workflow: z
+				.union([z.record(z.unknown()), z.string()])
+				.describe("Original workflow JSON."),
+			node: z.string().min(1).describe("Name of the node to replay."),
+			inputItems: z
+				.array(z.record(z.unknown()))
+				.optional()
+				.describe(
+					"Optional explicit input items (each becomes `{ json: ... }`).",
+				),
+			execution: z
+				.union([z.record(z.unknown()), z.string()])
+				.optional()
+				.describe(
+					"Optional execution payload — pulls real input the target saw last time.",
+				),
+		},
+		outputSchema: replayExecutionOutputShape,
+		annotations: {
+			title: "Build a replay workflow for one node",
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
+	},
+	async (input) => replayExecution(input),
+);
+
+// --- execution.timeline ---
+maybeRegisterTool(
+	"execution.timeline",
+	{
+		title: "Render an execution as a per-node timeline",
+		description:
+			"Render an n8n execution as a per-node timeline: start offset, duration, items in/out, error flag. Complements execution.explain — that one surfaces *why*, this surfaces *when*. Output is a markdown table sorted by start time. Deterministic.",
+		inputSchema: {
+			execution: z
+				.union([z.record(z.unknown()), z.string()])
+				.describe(
+					"n8n execution payload (must include `data.resultData.runData`).",
+				),
+		},
+		outputSchema: timelineExecutionOutputShape,
+		annotations: {
+			title: "Execution timeline",
+			readOnlyHint: true,
+			destructiveHint: false,
+			idempotentHint: true,
+			openWorldHint: false,
+		},
+	},
+	async (input) => timelineExecution(input),
+);
+
 // --- workflow.list ---
-server.registerTool(
+maybeRegisterTool(
 	"workflow.list",
 	{
 		title: "List workflows on a live n8n instance",
@@ -198,7 +312,7 @@ server.registerTool(
 );
 
 // --- workflow.get ---
-server.registerTool(
+maybeRegisterTool(
 	"workflow.get",
 	{
 		title: "Fetch a single workflow by ID",
@@ -220,7 +334,7 @@ server.registerTool(
 );
 
 // --- workflow.create ---
-server.registerTool(
+maybeRegisterTool(
 	"workflow.create",
 	{
 		title: "Create a workflow on a live n8n instance",
@@ -246,7 +360,7 @@ server.registerTool(
 );
 
 // --- workflow.activate ---
-server.registerTool(
+maybeRegisterTool(
 	"workflow.activate",
 	{
 		title: "Activate or deactivate a workflow",
@@ -272,7 +386,7 @@ server.registerTool(
 );
 
 // --- execution.list ---
-server.registerTool(
+maybeRegisterTool(
 	"execution.list",
 	{
 		title: "List recent n8n executions",
@@ -310,11 +424,14 @@ server.registerTool(
 	async (input) => listExecutions(input),
 );
 
-const TOOL_NAMES = [
+const ALL_TOOL_NAMES = [
 	"node.scaffold",
 	"workflow.generate",
 	"workflow.lint",
+	"workflow.diff",
 	"execution.explain",
+	"execution.replay",
+	"execution.timeline",
 	"workflow.list",
 	"workflow.get",
 	"workflow.create",
@@ -327,7 +444,8 @@ async function main() {
 		const summary = {
 			server: "n8n-mcp",
 			version: VERSION,
-			tools: TOOL_NAMES,
+			tools: ALL_TOOL_NAMES.filter(isToolEnabled),
+			policy: policySummary(),
 		};
 		process.stdout.write(JSON.stringify(summary, null, 2) + "\n");
 		return;

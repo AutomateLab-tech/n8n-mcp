@@ -1,0 +1,45 @@
+{
+  "name": "Missing typeVersion",
+  "nodes": [
+    {
+      "id": "f1000000-0000-0000-0000-000000000001",
+      "name": "Manual Trigger",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "parameters": {}
+    },
+    {
+      "id": "f1000000-0000-0000-0000-000000000002",
+      "name": "Google Sheets",
+      "type": "n8n-nodes-base.googleSheets",
+      "retryOnFail": true,
+      "position": [460, 300],
+      "parameters": {
+        "operation": "read",
+        "sheetId": "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+      },
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "cred-002",
+          "name": "Google account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Manual Trigger": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {},
+  "staticData": null
+}

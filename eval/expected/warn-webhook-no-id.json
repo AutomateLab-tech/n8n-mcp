@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "severity": "warning",
+      "node": "Webhook",
+      "message": "Webhook node has no `webhookId`. n8n auto-generates one on import, so the production URL will change. Set `webhookId` to keep a stable URL."
+    }
+  ],
+  "error_count": 0,
+  "warning_count": 1
+}

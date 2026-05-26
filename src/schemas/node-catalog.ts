@@ -51,3 +51,55 @@ export const KNOWN_TRIGGER_TYPES = new Set<string>([
 	"n8n-nodes-base.rssFeedReadTrigger",
 	"n8n-nodes-base.emailReadImap",
 ]);
+
+/**
+ * Nodes that hit rate-limited third-party APIs. If the workflow loops
+ * through items without batching, it will eat 429s.
+ */
+export const RATE_SENSITIVE_TYPES = new Set<string>([
+	"n8n-nodes-base.openAi",
+	"n8n-nodes-base.anthropic",
+	"n8n-nodes-base.slack",
+	"n8n-nodes-base.discord",
+	"n8n-nodes-base.gmail",
+	"n8n-nodes-base.googleSheets",
+	"n8n-nodes-base.notion",
+	"n8n-nodes-base.airtable",
+	"n8n-nodes-base.stripe",
+	"@n8n/n8n-nodes-langchain.lmChatOpenAi",
+	"@n8n/n8n-nodes-langchain.lmChatAnthropic",
+]);
+
+export const HTTP_REQUEST_TYPES = new Set<string>([
+	"n8n-nodes-base.httpRequest",
+]);
+
+export const SCHEDULE_TRIGGER_TYPES = new Set<string>([
+	"n8n-nodes-base.scheduleTrigger",
+	"n8n-nodes-base.cron",
+]);
+
+export const CODE_NODE_TYPES = new Set<string>([
+	"n8n-nodes-base.code",
+]);
+
+export const SET_NODE_TYPES = new Set<string>([
+	"n8n-nodes-base.set",
+]);
+
+export const MANUAL_TRIGGER_TYPES = new Set<string>([
+	"n8n-nodes-base.manualTrigger",
+]);
+
+/**
+ * Patterns the Code node sandbox forbids. Lifted from the n8n docs:
+ * `require`, `process`, `fetch`, `eval`, `__dirname`, `__filename`.
+ */
+export const CODE_SANDBOX_FORBIDDEN = [
+	/\brequire\s*\(/,
+	/\bprocess\./,
+	/\bfetch\s*\(/,
+	/\beval\s*\(/,
+	/\b__dirname\b/,
+	/\b__filename\b/,
+];

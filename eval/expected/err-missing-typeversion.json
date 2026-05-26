@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "severity": "error",
+      "node": "Google Sheets",
+      "message": "Missing `typeVersion`."
+    }
+  ],
+  "error_count": 1,
+  "warning_count": 0
+}

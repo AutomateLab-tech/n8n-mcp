@@ -6,12 +6,12 @@
     "url": "https://github.com/ratamaha-git/n8n-mcp",
     "source": "github"
   },
-  "version": "0.3.0",
+  "version": "0.5.5",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@automatelab/n8n-mcp",
-      "version": "0.3.0",
+      "version": "0.5.5",
       "transport": {
         "type": "stdio"
       }

@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+	checkWorkflowAllowed,
+	getAllowedTags,
+	getAllowedWorkflowIds,
+} from "../policy.js";
 
 /**
  * REST tools that talk to a live n8n instance.
@@ -140,7 +145,7 @@ export async function listWorkflows(rawArgs: unknown) {
 	if (!r.ok) return errorResult(r.error);
 	const data = r.data as { data?: unknown[] } | unknown[];
 	const arr = Array.isArray(data) ? data : data?.data ?? [];
-	const workflows = (arr as Array<Record<string, unknown>>).map((w) => ({
+	let workflows = (arr as Array<Record<string, unknown>>).map((w) => ({
 		id: w.id,
 		name: w.name,
 		active: w.active,
@@ -150,6 +155,18 @@ export async function listWorkflows(rawArgs: unknown) {
 			? (w.tags as Array<{ name?: string }>).map((t) => t.name).filter(Boolean)
 			: undefined,
 	}));
+	const allowedIds = getAllowedWorkflowIds();
+	if (allowedIds) {
+		workflows = workflows.filter((w) => allowedIds.has(String(w.id)));
+	}
+	const allowedTags = getAllowedTags();
+	if (allowedTags) {
+		workflows = workflows.filter((w) =>
+			(w.tags ?? []).some((t): t is string =>
+				typeof t === "string" && allowedTags.has(t),
+			),
+		);
+	}
 	return jsonResult(workflows, { workflows, count: workflows.length });
 }
 
@@ -171,6 +188,8 @@ export async function getWorkflow(rawArgs: unknown) {
 	const cfg = getConfig();
 	if ("error" in cfg) return errorResult(cfg.error);
 	const args = getWorkflowZod.parse(rawArgs);
+	const denied = checkWorkflowAllowed(args.id);
+	if (denied) return errorResult(denied);
 	const r = await call(cfg, "GET", `/workflows/${encodeURIComponent(args.id)}`);
 	if (!r.ok) return errorResult(r.error);
 	const wf = (r.data ?? {}) as Record<string, unknown>;
@@ -200,6 +219,11 @@ const createWorkflowZod = z.object({
 export async function createWorkflow(rawArgs: unknown) {
 	const cfg = getConfig();
 	if ("error" in cfg) return errorResult(cfg.error);
+	if (getAllowedWorkflowIds()) {
+		return errorResult(
+			"workflow.create is disabled when N8N_MCP_ALLOWED_WORKFLOW_IDS is set: a brand-new workflow's id cannot be in the allowlist by definition. Unset the env var or create the workflow in the n8n UI first, then add its id to the allowlist.",
+		);
+	}
 	const args = createWorkflowZod.parse(rawArgs);
 	const wf =
 		typeof args.workflow === "string"
@@ -246,6 +270,8 @@ export async function activateWorkflow(rawArgs: unknown) {
 	const cfg = getConfig();
 	if ("error" in cfg) return errorResult(cfg.error);
 	const args = activateWorkflowZod.parse(rawArgs);
+	const denied = checkWorkflowAllowed(args.id);
+	if (denied) return errorResult(denied);
 	const action = args.active === false ? "deactivate" : "activate";
 	const r = await call(
 		cfg,
@@ -296,6 +322,10 @@ export async function listExecutions(rawArgs: unknown) {
 	const cfg = getConfig();
 	if ("error" in cfg) return errorResult(cfg.error);
 	const args = listExecutionsZod.parse(rawArgs ?? {});
+	if (args.workflowId) {
+		const denied = checkWorkflowAllowed(args.workflowId);
+		if (denied) return errorResult(denied);
+	}
 	const params = new URLSearchParams();
 	if (args.workflowId) params.set("workflowId", args.workflowId);
 	if (args.status) params.set("status", args.status);
@@ -305,9 +335,15 @@ export async function listExecutions(rawArgs: unknown) {
 	const r = await call(cfg, "GET", `/executions${qs}`);
 	if (!r.ok) return errorResult(r.error);
 	const data = r.data as { data?: unknown[] } | unknown[];
-	const arr = Array.isArray(data) ? data : data?.data ?? [];
+	let arr = Array.isArray(data) ? data : data?.data ?? [];
+	const allowedIds = getAllowedWorkflowIds();
+	if (allowedIds) {
+		arr = (arr as Array<Record<string, unknown>>).filter((e) =>
+			allowedIds.has(String(e.workflowId)),
+		);
+	}
 	if (args.includeData) {
-		return jsonResult(r.data, {
+		return jsonResult(arr, {
 			executions: arr as unknown[],
 			count: (arr as unknown[]).length,
 		});

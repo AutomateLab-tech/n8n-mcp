@@ -1,6 +1,6 @@
 {
   "name": "@automatelab/n8n-mcp",
-  "version": "0.4.0",
+  "version": "0.5.5",
   "mcpName": "io.github.ratamaha-git/n8n-mcp",
   "description": "MCP server for n8n with tools for generating workflows, linting, diagnosing failed executions, and driving live n8n instances. Built for AI agents.",
   "type": "module",
@@ -10,6 +10,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
+    "build:dxt": "npm run build && cp -r dist dxt/dist && cp package.json dxt/package.json && dxt pack dxt",
     "dev": "tsx src/index.ts",
     "smoke": "node ./dist/index.js --smoke",
     "prepublishOnly": "npm run build"
@@ -30,10 +31,10 @@
   "homepage": "https://automatelab.tech/n8n-mcp-server/",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ratamaha-git/n8n-mcp.git"
+    "url": "git+https://github.com/AutomateLab-tech/n8n-mcp.git"
   },
   "bugs": {
-    "url": "https://github.com/ratamaha-git/n8n-mcp/issues"
+    "url": "https://github.com/AutomateLab-tech/n8n-mcp/issues"
   },
   "author": "AutomateLab <hello@automatelab.tech>",
   "license": "MIT",
@@ -42,9 +43,16 @@
   },
   "files": [
     "action.yml",
+    "smithery.yaml",
     "dist/",
     "examples/",
     "references/",
+    "dxt/manifest.json",
+    "dxt/README.md",
+    "Dockerfile",
+    "render.yaml",
+    "railway.toml",
+    "fly.toml",
     "SKILL.md",
     "GEMINI.md",
     "gemini-extension.json",

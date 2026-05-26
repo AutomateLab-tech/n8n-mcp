@@ -8,3 +8,9 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+# DXT build artifacts
+*.dxt
+dxt/dist/
+dxt/package.json
+dxt/package-lock.json

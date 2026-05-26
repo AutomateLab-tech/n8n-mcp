@@ -114,3 +114,56 @@ export const listExecutionsOutputShape = {
 		),
 	count: z.number().int().describe("Number of executions returned."),
 } as const;
+
+export const replayExecutionOutputShape = {
+	workflow: workflowShape,
+	item_count: z
+		.number()
+		.int()
+		.describe("Number of input items the replay seed will feed the target."),
+	target_node: z.string().describe("Name of the node being replayed."),
+} as const;
+
+const diffChangeSchema = z.object({
+	kind: z.enum([
+		"node_added",
+		"node_removed",
+		"node_modified",
+		"connection_added",
+		"connection_removed",
+		"setting_changed",
+		"active_changed",
+		"name_changed",
+	]),
+	node: z.string().optional(),
+	detail: z.string(),
+});
+
+export const diffWorkflowOutputShape = {
+	changes: z
+		.array(diffChangeSchema)
+		.describe("Ordered list of semantic differences."),
+	summary: z.string().describe("One-line summary of change counts by kind."),
+	change_count: z.number().int(),
+} as const;
+
+const timelineRowSchema = z.object({
+	node: z.string(),
+	run_index: z.number().int(),
+	start_ms: z.number(),
+	duration_ms: z.number(),
+	items_in: z.number().int().nullable(),
+	items_out: z.number().int(),
+	had_error: z.boolean(),
+	error_message: z.string().nullable(),
+});
+
+export const timelineExecutionOutputShape = {
+	rows: z
+		.array(timelineRowSchema)
+		.describe("Per-node-run timing and item counts, sorted by start_ms."),
+	total_ms: z
+		.number()
+		.describe("Wall-clock duration of the whole execution in milliseconds."),
+	row_count: z.number().int(),
+} as const;

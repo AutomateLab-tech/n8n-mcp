@@ -1,0 +1,11 @@
+{
+  "issues": [
+    {
+      "severity": "error",
+      "node": "Format Output",
+      "message": "Expression references node \"Fetch User\" which doesn't exist in this workflow. Likely renamed or deleted upstream. Update the `$('Fetch User')` reference."
+    }
+  ],
+  "error_count": 1,
+  "warning_count": 0
+}

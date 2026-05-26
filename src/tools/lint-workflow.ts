@@ -1,9 +1,16 @@
 import { z } from "zod";
 import {
 	AI_AGENT_TYPES,
+	CODE_NODE_TYPES,
+	CODE_SANDBOX_FORBIDDEN,
 	CREDENTIAL_REQUIRED_TYPES,
 	DEPRECATED_NODE_TYPES,
+	HTTP_REQUEST_TYPES,
 	IF_NODE_TYPES,
+	MANUAL_TRIGGER_TYPES,
+	RATE_SENSITIVE_TYPES,
+	SCHEDULE_TRIGGER_TYPES,
+	SET_NODE_TYPES,
 	WEBHOOK_TYPES,
 } from "../schemas/node-catalog.js";
 
@@ -60,9 +67,11 @@ export async function lintWorkflow(rawArgs: unknown) {
 			? (wf.connections as Record<string, unknown>)
 			: {};
 
+	const isActive = wf.active === true;
 	const nodeNames = new Set<string>();
 	const seenIds = new Set<string>();
 	const incomingByType: Record<string, Map<string, number>> = {};
+	const outgoingByType: Record<string, Map<string, number>> = {};
 
 	for (const [src, conf] of Object.entries(connections)) {
 		if (!conf || typeof conf !== "object") continue;
@@ -78,11 +87,11 @@ export async function lintWorkflow(rawArgs: unknown) {
 					if (typeof target !== "string") continue;
 					const map = (incomingByType[connType] ??= new Map());
 					map.set(target, (map.get(target) ?? 0) + 1);
+					const outMap = (outgoingByType[connType] ??= new Map());
+					outMap.set(src, (outMap.get(src) ?? 0) + 1);
 				}
 			}
 		}
-		// keep src referenced
-		void src;
 	}
 
 	for (const raw of nodes) {
@@ -193,11 +202,210 @@ export async function lintWorkflow(rawArgs: unknown) {
 			});
 		}
 
+		const params =
+			n.parameters && typeof n.parameters === "object"
+				? (n.parameters as Record<string, unknown>)
+				: {};
+
+		// Rule: manualTrigger in an active workflow never fires.
+		if (
+			isActive &&
+			nodeType &&
+			MANUAL_TRIGGER_TYPES.has(nodeType) &&
+			nodeName
+		) {
+			const wired = (outgoingByType.main?.get(nodeName) ?? 0) > 0;
+			if (wired) {
+				issues.push({
+					severity: "warning",
+					node: nodeName,
+					message:
+						"Manual Trigger is wired into an active workflow. Active workflows are triggered by webhooks/schedules — manualTrigger only fires from the n8n UI's 'Execute workflow' button.",
+				});
+			}
+		}
+
+		// Rule: disabled node with downstream connections.
+		if (n.disabled === true && nodeName) {
+			const hasDownstream = (outgoingByType.main?.get(nodeName) ?? 0) > 0;
+			if (hasDownstream) {
+				issues.push({
+					severity: "warning",
+					node: nodeName,
+					message:
+						"Node is disabled but has downstream connections. n8n will pass items through unchanged — this is usually unintended. Delete the node or rewire around it.",
+				});
+			}
+		}
+
+		// Rule: Schedule trigger using `hour` triggerAtHour without timezone.
+		if (nodeType && SCHEDULE_TRIGGER_TYPES.has(nodeType)) {
+			const rule = params.rule as Record<string, unknown> | undefined;
+			const interval = Array.isArray(rule?.interval) ? rule!.interval : [];
+			const hasHourTrigger = interval.some(
+				(i) =>
+					i &&
+					typeof i === "object" &&
+					"triggerAtHour" in (i as Record<string, unknown>),
+			);
+			const wfSettings = (wf.settings ?? {}) as Record<string, unknown>;
+			const timezone = wfSettings.timezone;
+			if (hasHourTrigger && (!timezone || typeof timezone !== "string")) {
+				issues.push({
+					severity: "warning",
+					node: nodeName,
+					message:
+						"Schedule trigger uses `triggerAtHour` but workflow has no `settings.timezone` set. Will fall back to the n8n instance's timezone, drift during DST, and surprise you twice a year. Set `settings.timezone` (e.g. 'UTC' or 'America/New_York').",
+				});
+			}
+		}
+
+		// Rule: Code node references forbidden sandbox APIs.
+		if (nodeType && CODE_NODE_TYPES.has(nodeType)) {
+			const code =
+				typeof params.jsCode === "string"
+					? params.jsCode
+					: typeof params.pythonCode === "string"
+						? params.pythonCode
+						: undefined;
+			if (typeof code === "string") {
+				for (const pat of CODE_SANDBOX_FORBIDDEN) {
+					if (pat.test(code)) {
+						issues.push({
+							severity: "error",
+							node: nodeName,
+							message: `Code node references "${pat.source.replace(/\\b/g, "").replace(/\\s\*/g, "").replace(/\\\./g, ".")}" which the n8n sandbox forbids. Use the HTTP Request node instead of fetch(); use $env for environment access; drop require() entirely.`,
+						});
+						break;
+					}
+				}
+			}
+		}
+
+		// Rule: empty Set node.
+		if (nodeType && SET_NODE_TYPES.has(nodeType)) {
+			const values = params.values as Record<string, unknown> | undefined;
+			const assignments = params.assignments as
+				| { assignments?: unknown[] }
+				| undefined;
+			const valueCount =
+				(Array.isArray(values?.string) ? values!.string.length : 0) +
+				(Array.isArray(values?.number) ? values!.number.length : 0) +
+				(Array.isArray(values?.boolean) ? values!.boolean.length : 0) +
+				(Array.isArray(assignments?.assignments)
+					? assignments!.assignments!.length
+					: 0);
+			if (valueCount === 0) {
+				issues.push({
+					severity: "warning",
+					node: nodeName,
+					message:
+						"Set node has no values configured. It will pass items through unchanged — likely a leftover scaffold node.",
+				});
+			}
+		}
+
+		// Rule: webhook node using a test-only path in an active workflow.
+		if (
+			nodeType &&
+			WEBHOOK_TYPES.has(nodeType) &&
+			isActive &&
+			typeof params.path === "string" &&
+			/^test[-_/]/i.test(params.path as string)
+		) {
+			issues.push({
+				severity: "warning",
+				node: nodeName,
+				message: `Webhook path "${params.path}" starts with 'test'. Active workflows expose the production URL — this path will be live. Rename to something stable.`,
+			});
+		}
+
+		// Rule: HTTP Request with method + body mismatch.
+		if (nodeType && HTTP_REQUEST_TYPES.has(nodeType)) {
+			const method = ((params.method as string) ?? "GET").toUpperCase();
+			const sendBody = params.sendBody === true;
+			const hasBody =
+				params.body !== undefined ||
+				params.bodyParameters !== undefined ||
+				params.jsonBody !== undefined;
+			if (method === "GET" && (sendBody || hasBody)) {
+				issues.push({
+					severity: "warning",
+					node: nodeName,
+					message:
+						"HTTP Request method is GET but a body is configured. Most servers ignore GET bodies and some reject them outright. Switch to POST/PUT or drop the body.",
+				});
+			}
+			if (
+				(method === "POST" || method === "PUT" || method === "PATCH") &&
+				!sendBody &&
+				!hasBody
+			) {
+				issues.push({
+					severity: "warning",
+					node: nodeName,
+					message: `HTTP Request method is ${method} but no body is configured. Either enable 'Send Body' or switch to GET.`,
+				});
+			}
+		}
+
+		// Rule: rate-sensitive node with no retry/wait wiring.
+		if (
+			nodeType &&
+			RATE_SENSITIVE_TYPES.has(nodeType) &&
+			!n.retryOnFail &&
+			!n.continueOnFail
+		) {
+			issues.push({
+				severity: "warning",
+				node: nodeName,
+				message: `Node type "${nodeType}" hits a rate-limited API and has neither retryOnFail nor continueOnFail set. A 429 from upstream will halt the whole workflow. Enable Retry on Fail (Settings tab) or wrap in Loop Over Items with a Wait node.`,
+			});
+		}
+
+		// Rule: credential drift — credentials object names a credential that
+		// the node type doesn't expect. The credential property name should
+		// roughly match the node type's domain.
+		if (n.credentials && typeof n.credentials === "object" && nodeType) {
+			const creds = n.credentials as Record<string, unknown>;
+			const credKeys = Object.keys(creds);
+			const baseType = nodeType.split(".").pop()?.toLowerCase() ?? "";
+			const lowerKeys = credKeys.map((k) => k.toLowerCase());
+			const matches = lowerKeys.some(
+				(k) =>
+					k.startsWith(baseType) || baseType.startsWith(k.replace(/api$/, "")),
+			);
+			if (credKeys.length > 0 && !matches && baseType.length > 3) {
+				issues.push({
+					severity: "warning",
+					node: nodeName,
+					message: `Node type "${nodeType}" has credentials [${credKeys.join(", ")}] which don't look like they match the node domain. Likely a copy-paste from a different node — verify the credential is the right one.`,
+				});
+			}
+		}
+
+		// Rule: expression staleness — references a node by name that doesn't
+		// exist in this workflow.
+		const expressionTargets = collectExpressionNodeRefs(params);
+		for (const ref of expressionTargets) {
+			if (!nodeNames.has(ref) && ref !== nodeName) {
+				const stillToScan = nodes.some(
+					(other) =>
+						other &&
+						typeof other === "object" &&
+						(other as Record<string, unknown>).name === ref,
+				);
+				if (!stillToScan) {
+					issues.push({
+						severity: "error",
+						node: nodeName,
+						message: `Expression references node "${ref}" which doesn't exist in this workflow. Likely renamed or deleted upstream. Update the \`$('${ref}')\` reference.`,
+					});
+				}
+			}
+		}
+
 		if (nodeType && IF_NODE_TYPES.has(nodeType)) {
-			const params =
-				n.parameters && typeof n.parameters === "object"
-					? (n.parameters as Record<string, unknown>)
-					: {};
 			const conditions = params.conditions as Record<string, unknown> | undefined;
 			const looksLikeV1 =
 				conditions !== undefined &&
@@ -262,6 +470,33 @@ function safeParse(s: string): unknown {
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * Walk a parameters object and collect every `$('Node Name')` reference
+ * inside `={{ ... }}` expressions. Returns the node names referenced.
+ */
+function collectExpressionNodeRefs(
+	params: Record<string, unknown>,
+): Set<string> {
+	const refs = new Set<string>();
+	const re = /\$\(\s*['"]([^'"]+)['"]\s*\)/g;
+	function walk(v: unknown) {
+		if (typeof v === "string") {
+			if (!v.startsWith("=")) return;
+			for (const m of v.matchAll(re)) {
+				refs.add(m[1]);
+			}
+		} else if (Array.isArray(v)) {
+			for (const item of v) walk(item);
+		} else if (v && typeof v === "object") {
+			for (const inner of Object.values(v as Record<string, unknown>)) {
+				walk(inner);
+			}
+		}
+	}
+	walk(params);
+	return refs;
 }
 
 function formatResult(issues: Issue[]) {

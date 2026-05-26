@@ -34,8 +34,11 @@ Tool names follow dot-notation and form a navigable tree: `node.*`, `workflow.*`
 |---|---|
 | `workflow.generate` | Plain-English description → workflow JSON. Detects AI-agent intent. |
 | `node.scaffold` | Description → single `INodeType` TypeScript file for a custom n8n package. |
-| `workflow.lint` | Workflow JSON → list of errors and warnings. |
+| `workflow.lint` | Workflow JSON → list of errors and warnings (20+ rules). |
+| `workflow.diff` | Two workflows → semantic diff (nodes added/removed/modified, connections, settings). |
 | `execution.explain` | Failed execution JSON → per-node diagnosis with hints. |
+| `execution.replay` | Workflow + node → self-contained replay workflow that exercises just that node. |
+| `execution.timeline` | Execution JSON → per-node timeline table (start, duration, items in/out, errors). |
 
 **Live-instance** (require `N8N_API_URL` + `N8N_API_KEY` env vars):
 
@@ -47,7 +50,30 @@ Tool names follow dot-notation and form a navigable tree: `node.*`, `workflow.*`
 | `workflow.activate` | Flip active on/off. |
 | `execution.list` | Browse executions; pass `includeData: true` for the full body. |
 
-> **v0.4.0 breaking change.** Tools were renamed from `n8n_*` (snake_case) to dot-notation (`workflow.generate`, `execution.explain`, ...). Update any prompts, agent skills, or scripts that referenced the old names.
+> **v0.5.0 changes.** Three new tools: `workflow.diff`, `execution.replay`, `execution.timeline`. Lint expanded with 10 new rules (rate-limit, credential drift, expression staleness, code sandbox, webhook test path, manualTrigger-in-active, DST schedule risk, disabled-but-wired, empty Set, HTTP method/body mismatch). New runtime policy env vars: `N8N_MCP_READ_ONLY`, `N8N_MCP_DISABLED_TOOLS`, `N8N_MCP_ALLOWED_WORKFLOW_IDS`, `N8N_MCP_ALLOWED_TAGS`. DXT bundle + Dockerfile + Render/Railway/Fly deploy configs.
+
+> **v0.4.0 breaking change.** Tools were renamed from `n8n_*` (snake_case) to dot-notation. Update any prompts, agent skills, or scripts that referenced the old names.
+
+## Runtime policy (v0.5+)
+
+Constrain the server without forking. Set these env vars before launching:
+
+| Env var | Effect |
+|---|---|
+| `N8N_MCP_READ_ONLY=1` | Disables `workflow.create`, `workflow.activate`, `node.scaffold`. |
+| `N8N_MCP_DISABLED_TOOLS=workflow.create,workflow.activate` | Skip those tool registrations entirely. |
+| `N8N_MCP_ALLOWED_WORKFLOW_IDS=abc,def` | REST tools refuse to touch any workflow outside the list. |
+| `N8N_MCP_ALLOWED_TAGS=prod,staging` | `workflow.list` filters to workflows carrying at least one tag. |
+
+Useful when handing the MCP to a junior agent or wiring it behind a customer-facing assistant.
+
+## Deploy
+
+- **Claude Desktop one-click**: build the `.dxt` bundle from `dxt/manifest.json` (see `dxt/README.md`).
+- **Docker**: `docker build -t n8n-mcp . && docker run --rm -i -e N8N_API_URL=... -e N8N_API_KEY=... n8n-mcp`.
+- **Render**: drop in [`render.yaml`](./render.yaml) and click "New from Blueprint".
+- **Railway**: [`railway.toml`](./railway.toml) — `railway up` in the repo root.
+- **Fly.io**: [`fly.toml`](./fly.toml) — `fly launch --copy-config`.
 
 ## Install
 
@@ -93,7 +119,7 @@ See [ACTION.md](./ACTION.md) and [GITHUB-ACTION-SETUP.md](./GITHUB-ACTION-SETUP.
 
 The `env` block is optional - the 4 stateless tools work without it. Get an API key from n8n: **Settings → API → Create API key**.
 
-Restart your MCP host. The 9 dot-notation tools (`workflow.*`, `node.*`, `execution.*`) appear in the MCP panel.
+Restart your MCP host. The 12 dot-notation tools (`workflow.*`, `node.*`, `execution.*`) appear in the MCP panel.
 
 ## Tool examples
 

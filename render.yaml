@@ -1,0 +1,20 @@
+services:
+  - type: worker
+    name: n8n-mcp
+    runtime: node
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: node dist/index.js
+    envVars:
+      - key: N8N_API_URL
+        sync: false
+      - key: N8N_API_KEY
+        sync: false
+      - key: N8N_MCP_READ_ONLY
+        sync: false
+      - key: N8N_MCP_DISABLED_TOOLS
+        sync: false
+      - key: N8N_MCP_ALLOWED_WORKFLOW_IDS
+        sync: false
+      - key: N8N_MCP_ALLOWED_TAGS
+        sync: false
