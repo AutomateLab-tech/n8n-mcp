@@ -10,7 +10,7 @@ An [MCP](https://modelcontextprotocol.io) server for [n8n](https://n8n.io) that 
 
 We use n8n daily inside AutomateLab and kept hitting the same LLM failures: workflow JSON that imports but fails at runtime, AI Agent clusters wired with the wrong connection types, executions that silently drop items with no clue where to look. Dumping the whole n8n catalog into context doesn't fix it - the failure modes are too subtle (typeVersion mismatches, IF v1 schema, credentials that don't survive import).
 
-So we built a small, focused server: **encode the failure modes the lint can catch, the cluster topology the generator must respect, and the diagnosis the agent can't do alone.** For a walkthrough of the nine tools with example output, see the [launch post on automatelab.tech](https://automatelab.tech/n8n-mcp-server/).
+So we built a small, focused server: **encode the failure modes the lint can catch, the cluster topology the generator must respect, and the diagnosis the agent can't do alone.** For the historical launch walkthrough, covering the original nine tools with example output, see the [launch post on automatelab.tech](https://automatelab.tech/n8n-mcp-server/).
 
 ## Why it's different
 
