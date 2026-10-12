@@ -33,7 +33,8 @@ import {
 } from "./output-schemas.js";
 import { isToolEnabled, policySummary } from "./policy.js";
 
-const VERSION = "0.5.5";
+import { readFileSync as readMcpPackage } from "node:fs";
+const VERSION: string = JSON.parse(readMcpPackage(new URL("../package.json", import.meta.url), "utf8")).version;
 
 const server = new McpServer({
 	name: "n8n-mcp",

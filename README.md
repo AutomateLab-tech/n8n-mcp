@@ -185,3 +185,7 @@ MIT. See [LICENSE](./LICENSE).
 ---
 
 Developed by [AutomateLab](https://automatelab.tech).
+
+## Maintenance and verification
+
+See [the maintenance guide](docs/maintenance-guide.md) for interpretation limits, current tool names where applicable, and reproducible verification.
