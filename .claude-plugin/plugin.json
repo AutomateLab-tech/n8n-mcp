@@ -1,5 +1,6 @@
 {
   "description": "MCP server for n8n: generate workflow JSON, lint, explain failed executions, diff workflows, and drive a live n8n instance via REST. 9 tools across workflow, node, and execution namespaces.",
   "name": "n8n-mcp",
-  "displayName": "AutomateLab n8n MCP"
+  "displayName": "AutomateLab n8n MCP",
+  "version": "1.1.1"
 }
