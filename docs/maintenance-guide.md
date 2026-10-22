@@ -30,3 +30,7 @@ Start with `workflow_lint`. Required fields: `workflow`. Read its input schema b
 ## Verify a change
 
 Record the package or snapshot version, exact input, observation time and actual output. Check a materially different input and a valid neighboring case. Treat expected output as a fixture, not a live measurement.
+
+## Usage walkthrough
+
+See [the tested usage walkthrough](usage-walkthrough.md) for a concrete input and verification steps.
